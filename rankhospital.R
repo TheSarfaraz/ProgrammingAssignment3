@@ -1,47 +1,67 @@
-#` The function reads the outcome-of-care-measures.csv file and returns a character vector with the name
-#` of the hospital that has the ranking specified by the num argument. For example, the call
-rankhospital <- function(state, outcome, num) {
+rankhospital <- function(state, outcome, num = "best") {
     ## Read outcome data
-    data <- read.csv("outcome-of-care-measures.csv", na.strings = "Not Available", stringsAsFactors = FALSE)
     
     ## Check that state and outcome are valid
-    states <- data[, 7]
-    outcomes <- c("heart attack" = 11, "heart failure" = 17, "pneumonia" = 23)
+    ## Return hospital name in that state with the given rank
+    ## 30-day death rate
+    
+    #read in the desired data
+    # data <- read.csv("outcome-of-care-measures.csv", colClasses = "character")
+    data <- read.csv("outcome-of-care-measures.csv", na.strings = "Not Available", stringsAsFactors = FALSE)
+    
+    #check if the state and outcomes are valid
+    states <- data[ , 7]
+    outcomes <- c("heart attack", "heart failure", "pneumonia")
     if ((state %in% states) == FALSE) {
-        stop("Invalid state")
+        stop(print("invalid state"))
     }
-    if ((outcome %in% names(outcomes)) == FALSE) {
-        stop("Invalid outcome")
+    else if ((outcome %in% outcomes) == FALSE) {
+        stop(print("invalid outcome"))
     }
     
-    ## Get the subset of the data with desired state
-    new_data <- subset(data, data$State == state)
+    #get the subset of the data with the desired state
+    new_data <- subset(data, State == state)
     
-    ## Get rid of NA's in the desired outcome column
-    required_columns <- as.numeric(new_data[, outcomes[outcome]])
-    bad <- is.na(required_columns)
+    #get the desired outcome column from the data file
+    if (outcome == "heart attack") {
+        outcome_column <- 11
+    }
+    else if (outcome == "heart failure") {
+        outcome_column <- 17
+    }
+    else {
+        outcome_column <- 23
+    }
+    
+    #if num is greater that the number of hospitals in the desired state,
+    # return NA
+    if (is.numeric(num) == TRUE) {
+        if (length(data[,2]) < num) {
+            return(NA)
+        }
+    }
+    
+    #get rid of the NA's in the desired outcome column
+    new_data[, outcome_column] <- as.numeric(new_data[,outcome_column])
+    bad <- is.na(new_data[, outcome_column])
     desired_data <- new_data[!bad, ]
     
-
-    ## Find the hospitals in the rows with the minimum outcome value
-    columns_considered <- as.numeric(desired_data[, outcomes[outcome]])
-    desired_hospitals <- desired_data[, c(2, outcomes[outcome])]
+    #arrange the modified dataframe in ascending order of the outcome values
+    outcome_column_name <- names(desired_data)[outcome_column]
+    hospital_column_name <- names(desired_data)[2]
+    index <- with(desired_data, order(desired_data[outcome_column_name], desired_data[hospital_column_name]))
+    ordered_desired_data <- desired_data[index, ]
     
-    ## If there are multiple hospitals which the minimum outcome value, then
-    ## return the first hospital name from the alphabetically sorter hospital names list
-    sorted_hospitals <- desired_hospitals[order(desired_hospitals[, 2], desired_hospitals[, 1]),]
-    Rank <- order(sorted_hospitals[, 2], sorted_hospitals[, 1])
-    sorted_hospitals$Rank <- Rank
-    if (num == "best"){
-        num = 1
+    #if nume is either "best" or "worst", then interpret it to the
+    #corresponding numerical value
+    if (is.character(num) == TRUE) {
+        if (num == "best") {
+            num = 1
+        }
+        else if (num == "worst") {
+            num = length(ordered_desired_data[, outcome_column])
+        }
     }
-    else if (num == "worst"){
-        num = nrow(sorted_hospitals)
-    }
-    else if (num > nrow(sorted_hospitals)){
-        return(NA)
-    }
-    result_hospitals <- subset(sorted_hospitals, sorted_hospitals$Rank <= num)
-    result <- subset(result_hospitals, result_hospitals$Rank == num)[, 1]
-    return(result)
+    #return the hospital name with the outcome ranking of num
+    ordered_desired_data[num, 2]
 }
